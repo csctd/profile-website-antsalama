@@ -1,0 +1,1835 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "85cf6e6b-85f9-40c2-8746-b2a4e8ae0334",
+   "metadata": {},
+   "source": [
+    "# Replicating Probublicas COMPAS Audit"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1efb10c4-ec59-4e45-bc09-01888a9a3ece",
+   "metadata": {},
+   "source": [
+    "## Why COMPAS?\n",
+    "\n",
+    "\n",
+    "## Propublica started the COMPAS Debate with the article [Machine Bias](https://www.propublica.org/article/machine-bias-risk-assessments-in-criminal-sentencin). With their article, they also released details of their methodology and their [data and code](https://github.com/propublica/compas-analysis). This presents a real data set that can be used for research on how data is used in a criminal justice setting without researchers having to perform their own requests for information, so it has been used and reused a lot of times.\n",
+    "\n",
+    "\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "e3167250-5446-451b-8ff5-ea55ad94e7d3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "import scipy\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "import itertools\n",
+    "from sklearn.metrics import roc_curve\n",
+    "import warnings\n",
+    "warnings.filterwarnings('ignore')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "id": "eee587bc-da48-4e35-b51a-266eacb49721",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# use the raw button on github to get the compatible url\n",
+    "df_pp = pd.read_csv(\"https://raw.githubusercontent.com/propublica/compas-analysis/master/compas-scores-two-years.csv\",\n",
+    "         header=0).set_index('id')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "id": "96205341-abd0-479c-a6f1-584dce332f77",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>name</th>\n",
+       "      <th>first</th>\n",
+       "      <th>last</th>\n",
+       "      <th>compas_screening_date</th>\n",
+       "      <th>sex</th>\n",
+       "      <th>dob</th>\n",
+       "      <th>age</th>\n",
+       "      <th>age_cat</th>\n",
+       "      <th>race</th>\n",
+       "      <th>juv_fel_count</th>\n",
+       "      <th>...</th>\n",
+       "      <th>v_decile_score</th>\n",
+       "      <th>v_score_text</th>\n",
+       "      <th>v_screening_date</th>\n",
+       "      <th>in_custody</th>\n",
+       "      <th>out_custody</th>\n",
+       "      <th>priors_count.1</th>\n",
+       "      <th>start</th>\n",
+       "      <th>end</th>\n",
+       "      <th>event</th>\n",
+       "      <th>two_year_recid</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>miguel hernandez</td>\n",
+       "      <td>miguel</td>\n",
+       "      <td>hernandez</td>\n",
+       "      <td>2013-08-14</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1947-04-18</td>\n",
+       "      <td>69</td>\n",
+       "      <td>Greater than 45</td>\n",
+       "      <td>Other</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-08-14</td>\n",
+       "      <td>2014-07-07</td>\n",
+       "      <td>2014-07-14</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>327</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>kevon dixon</td>\n",
+       "      <td>kevon</td>\n",
+       "      <td>dixon</td>\n",
+       "      <td>2013-01-27</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1982-01-22</td>\n",
+       "      <td>34</td>\n",
+       "      <td>25 - 45</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-01-27</td>\n",
+       "      <td>2013-01-26</td>\n",
+       "      <td>2013-02-05</td>\n",
+       "      <td>0</td>\n",
+       "      <td>9</td>\n",
+       "      <td>159</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>ed philo</td>\n",
+       "      <td>ed</td>\n",
+       "      <td>philo</td>\n",
+       "      <td>2013-04-14</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1991-05-14</td>\n",
+       "      <td>24</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>3</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-04-14</td>\n",
+       "      <td>2013-06-16</td>\n",
+       "      <td>2013-06-16</td>\n",
+       "      <td>4</td>\n",
+       "      <td>0</td>\n",
+       "      <td>63</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>5</th>\n",
+       "      <td>marcu brown</td>\n",
+       "      <td>marcu</td>\n",
+       "      <td>brown</td>\n",
+       "      <td>2013-01-13</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1993-01-21</td>\n",
+       "      <td>23</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>6</td>\n",
+       "      <td>Medium</td>\n",
+       "      <td>2013-01-13</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1174</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>6</th>\n",
+       "      <td>bouthy pierrelouis</td>\n",
+       "      <td>bouthy</td>\n",
+       "      <td>pierrelouis</td>\n",
+       "      <td>2013-03-26</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1973-01-22</td>\n",
+       "      <td>43</td>\n",
+       "      <td>25 - 45</td>\n",
+       "      <td>Other</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-03-26</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>2</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1102</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>5 rows × 52 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                  name   first         last compas_screening_date   sex  \\\n",
+       "id                                                                        \n",
+       "1     miguel hernandez  miguel    hernandez            2013-08-14  Male   \n",
+       "3          kevon dixon   kevon        dixon            2013-01-27  Male   \n",
+       "4             ed philo      ed        philo            2013-04-14  Male   \n",
+       "5          marcu brown   marcu        brown            2013-01-13  Male   \n",
+       "6   bouthy pierrelouis  bouthy  pierrelouis            2013-03-26  Male   \n",
+       "\n",
+       "           dob  age          age_cat              race  juv_fel_count  ...  \\\n",
+       "id                                                                     ...   \n",
+       "1   1947-04-18   69  Greater than 45             Other              0  ...   \n",
+       "3   1982-01-22   34          25 - 45  African-American              0  ...   \n",
+       "4   1991-05-14   24     Less than 25  African-American              0  ...   \n",
+       "5   1993-01-21   23     Less than 25  African-American              0  ...   \n",
+       "6   1973-01-22   43          25 - 45             Other              0  ...   \n",
+       "\n",
+       "    v_decile_score  v_score_text  v_screening_date  in_custody  out_custody  \\\n",
+       "id                                                                            \n",
+       "1                1           Low        2013-08-14  2014-07-07   2014-07-14   \n",
+       "3                1           Low        2013-01-27  2013-01-26   2013-02-05   \n",
+       "4                3           Low        2013-04-14  2013-06-16   2013-06-16   \n",
+       "5                6        Medium        2013-01-13         NaN          NaN   \n",
+       "6                1           Low        2013-03-26         NaN          NaN   \n",
+       "\n",
+       "   priors_count.1 start   end event two_year_recid  \n",
+       "id                                                  \n",
+       "1               0     0   327     0              0  \n",
+       "3               0     9   159     1              1  \n",
+       "4               4     0    63     0              1  \n",
+       "5               1     0  1174     0              0  \n",
+       "6               2     0  1102     0              0  \n",
+       "\n",
+       "[5 rows x 52 columns]"
+      ]
+     },
+     "execution_count": 15,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_pp.head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "4e5541c0-4830-405e-89a5-a00180cecd08",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>name</th>\n",
+       "      <th>first</th>\n",
+       "      <th>last</th>\n",
+       "      <th>compas_screening_date</th>\n",
+       "      <th>sex</th>\n",
+       "      <th>dob</th>\n",
+       "      <th>age</th>\n",
+       "      <th>age_cat</th>\n",
+       "      <th>race</th>\n",
+       "      <th>juv_fel_count</th>\n",
+       "      <th>...</th>\n",
+       "      <th>v_decile_score</th>\n",
+       "      <th>v_score_text</th>\n",
+       "      <th>v_screening_date</th>\n",
+       "      <th>in_custody</th>\n",
+       "      <th>out_custody</th>\n",
+       "      <th>priors_count.1</th>\n",
+       "      <th>start</th>\n",
+       "      <th>end</th>\n",
+       "      <th>event</th>\n",
+       "      <th>two_year_recid</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>10996</th>\n",
+       "      <td>steven butler</td>\n",
+       "      <td>steven</td>\n",
+       "      <td>butler</td>\n",
+       "      <td>2013-11-23</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1992-07-17</td>\n",
+       "      <td>23</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>5</td>\n",
+       "      <td>Medium</td>\n",
+       "      <td>2013-11-23</td>\n",
+       "      <td>2013-11-22</td>\n",
+       "      <td>2013-11-24</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>860</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>10997</th>\n",
+       "      <td>malcolm simmons</td>\n",
+       "      <td>malcolm</td>\n",
+       "      <td>simmons</td>\n",
+       "      <td>2014-02-01</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1993-03-25</td>\n",
+       "      <td>23</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>5</td>\n",
+       "      <td>Medium</td>\n",
+       "      <td>2014-02-01</td>\n",
+       "      <td>2014-01-31</td>\n",
+       "      <td>2014-02-02</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>790</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>10999</th>\n",
+       "      <td>winston gregory</td>\n",
+       "      <td>winston</td>\n",
+       "      <td>gregory</td>\n",
+       "      <td>2014-01-14</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1958-10-01</td>\n",
+       "      <td>57</td>\n",
+       "      <td>Greater than 45</td>\n",
+       "      <td>Other</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2014-01-14</td>\n",
+       "      <td>2014-01-13</td>\n",
+       "      <td>2014-01-14</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>808</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>11000</th>\n",
+       "      <td>farrah jean</td>\n",
+       "      <td>farrah</td>\n",
+       "      <td>jean</td>\n",
+       "      <td>2014-03-09</td>\n",
+       "      <td>Female</td>\n",
+       "      <td>1982-11-17</td>\n",
+       "      <td>33</td>\n",
+       "      <td>25 - 45</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>2</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2014-03-09</td>\n",
+       "      <td>2014-03-08</td>\n",
+       "      <td>2014-03-09</td>\n",
+       "      <td>3</td>\n",
+       "      <td>0</td>\n",
+       "      <td>754</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>11001</th>\n",
+       "      <td>florencia sanmartin</td>\n",
+       "      <td>florencia</td>\n",
+       "      <td>sanmartin</td>\n",
+       "      <td>2014-06-30</td>\n",
+       "      <td>Female</td>\n",
+       "      <td>1992-12-18</td>\n",
+       "      <td>23</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>Hispanic</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>4</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2014-06-30</td>\n",
+       "      <td>2015-03-15</td>\n",
+       "      <td>2015-03-15</td>\n",
+       "      <td>2</td>\n",
+       "      <td>0</td>\n",
+       "      <td>258</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>5 rows × 52 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                      name      first       last compas_screening_date  \\\n",
+       "id                                                                       \n",
+       "10996        steven butler     steven     butler            2013-11-23   \n",
+       "10997      malcolm simmons    malcolm    simmons            2014-02-01   \n",
+       "10999      winston gregory    winston    gregory            2014-01-14   \n",
+       "11000          farrah jean     farrah       jean            2014-03-09   \n",
+       "11001  florencia sanmartin  florencia  sanmartin            2014-06-30   \n",
+       "\n",
+       "          sex         dob  age          age_cat              race  \\\n",
+       "id                                                                  \n",
+       "10996    Male  1992-07-17   23     Less than 25  African-American   \n",
+       "10997    Male  1993-03-25   23     Less than 25  African-American   \n",
+       "10999    Male  1958-10-01   57  Greater than 45             Other   \n",
+       "11000  Female  1982-11-17   33          25 - 45  African-American   \n",
+       "11001  Female  1992-12-18   23     Less than 25          Hispanic   \n",
+       "\n",
+       "       juv_fel_count  ...  v_decile_score  v_score_text  v_screening_date  \\\n",
+       "id                    ...                                                   \n",
+       "10996              0  ...               5        Medium        2013-11-23   \n",
+       "10997              0  ...               5        Medium        2014-02-01   \n",
+       "10999              0  ...               1           Low        2014-01-14   \n",
+       "11000              0  ...               2           Low        2014-03-09   \n",
+       "11001              0  ...               4           Low        2014-06-30   \n",
+       "\n",
+       "       in_custody  out_custody priors_count.1 start  end event two_year_recid  \n",
+       "id                                                                             \n",
+       "10996  2013-11-22   2013-11-24              0     1  860     0              0  \n",
+       "10997  2014-01-31   2014-02-02              0     1  790     0              0  \n",
+       "10999  2014-01-13   2014-01-14              0     0  808     0              0  \n",
+       "11000  2014-03-08   2014-03-09              3     0  754     0              0  \n",
+       "11001  2015-03-15   2015-03-15              2     0  258     0              1  \n",
+       "\n",
+       "[5 rows x 52 columns]"
+      ]
+     },
+     "execution_count": 16,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_pp.tail()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "id": "098ed837-4dda-4c95-8c79-de2f3c765982",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(7214, 52)"
+      ]
+     },
+     "execution_count": 17,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_pp.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "id": "6e13c386-b782-41cf-8bb0-a70fed852d9d",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "AttributeError",
+     "evalue": "module 'pandas' has no attribute 'clean'",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m                            Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-18-58ca1c5a18e9>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mdf\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mpd\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mclean\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_c.csv'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m: module 'pandas' has no attribute 'clean'"
+     ]
+    }
+   ],
+   "source": [
+    "df = pd.clean('https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_c.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "21cd1cfb-92de-45a8-bd44-59d683bf0ffe",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "AttributeError",
+     "evalue": "module 'pandas' has no attribute 'read'",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m                            Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-19-211374c79ccc>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mdf\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mpd\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mread\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_c.csv'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m: module 'pandas' has no attribute 'read'"
+     ]
+    }
+   ],
+   "source": [
+    "df = pd.read('https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_c.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "id": "79509a27-4e80-4ad6-9e16-0a488ded0136",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "AttributeError",
+     "evalue": "module 'pandas' has no attribute 'panda'",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m                            Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-20-a10d223a560e>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mdf\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mpd\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mpanda\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_c.csv'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m: module 'pandas' has no attribute 'panda'"
+     ]
+    }
+   ],
+   "source": [
+    "df = pd.panda('https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_c.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "id": "c0a8c32b-a681-426c-a0a4-c48368dd1a45",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df = pd.read_csv('https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_c.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "id": "3e3a7e1d-93f1-497b-94da-8296253c7706",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>name</th>\n",
+       "      <th>first</th>\n",
+       "      <th>last</th>\n",
+       "      <th>compas_screening_date</th>\n",
+       "      <th>sex</th>\n",
+       "      <th>dob</th>\n",
+       "      <th>age</th>\n",
+       "      <th>age_cat</th>\n",
+       "      <th>race</th>\n",
+       "      <th>juv_fel_count</th>\n",
+       "      <th>...</th>\n",
+       "      <th>v_decile_score</th>\n",
+       "      <th>v_score_text</th>\n",
+       "      <th>v_screening_date</th>\n",
+       "      <th>in_custody</th>\n",
+       "      <th>out_custody</th>\n",
+       "      <th>priors_count.1</th>\n",
+       "      <th>start</th>\n",
+       "      <th>end</th>\n",
+       "      <th>event</th>\n",
+       "      <th>two_year_recid</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>miguel hernandez</td>\n",
+       "      <td>miguel</td>\n",
+       "      <td>hernandez</td>\n",
+       "      <td>2013-08-14</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1947-04-18</td>\n",
+       "      <td>69</td>\n",
+       "      <td>Greater than 45</td>\n",
+       "      <td>Other</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-08-14</td>\n",
+       "      <td>2014-07-07</td>\n",
+       "      <td>2014-07-14</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>327</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>kevon dixon</td>\n",
+       "      <td>kevon</td>\n",
+       "      <td>dixon</td>\n",
+       "      <td>2013-01-27</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1982-01-22</td>\n",
+       "      <td>34</td>\n",
+       "      <td>25 - 45</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-01-27</td>\n",
+       "      <td>2013-01-26</td>\n",
+       "      <td>2013-02-05</td>\n",
+       "      <td>0</td>\n",
+       "      <td>9</td>\n",
+       "      <td>159</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>ed philo</td>\n",
+       "      <td>ed</td>\n",
+       "      <td>philo</td>\n",
+       "      <td>2013-04-14</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1991-05-14</td>\n",
+       "      <td>24</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>3</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-04-14</td>\n",
+       "      <td>2013-06-16</td>\n",
+       "      <td>2013-06-16</td>\n",
+       "      <td>4</td>\n",
+       "      <td>0</td>\n",
+       "      <td>63</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>5</th>\n",
+       "      <td>marcu brown</td>\n",
+       "      <td>marcu</td>\n",
+       "      <td>brown</td>\n",
+       "      <td>2013-01-13</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1993-01-21</td>\n",
+       "      <td>23</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>6</td>\n",
+       "      <td>Medium</td>\n",
+       "      <td>2013-01-13</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1174</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>6</th>\n",
+       "      <td>bouthy pierrelouis</td>\n",
+       "      <td>bouthy</td>\n",
+       "      <td>pierrelouis</td>\n",
+       "      <td>2013-03-26</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>1973-01-22</td>\n",
+       "      <td>43</td>\n",
+       "      <td>25 - 45</td>\n",
+       "      <td>Other</td>\n",
+       "      <td>0</td>\n",
+       "      <td>...</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Low</td>\n",
+       "      <td>2013-03-26</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>2</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1102</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>5 rows × 52 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                  name   first         last compas_screening_date   sex  \\\n",
+       "id                                                                        \n",
+       "1     miguel hernandez  miguel    hernandez            2013-08-14  Male   \n",
+       "3          kevon dixon   kevon        dixon            2013-01-27  Male   \n",
+       "4             ed philo      ed        philo            2013-04-14  Male   \n",
+       "5          marcu brown   marcu        brown            2013-01-13  Male   \n",
+       "6   bouthy pierrelouis  bouthy  pierrelouis            2013-03-26  Male   \n",
+       "\n",
+       "           dob  age          age_cat              race  juv_fel_count  ...  \\\n",
+       "id                                                                     ...   \n",
+       "1   1947-04-18   69  Greater than 45             Other              0  ...   \n",
+       "3   1982-01-22   34          25 - 45  African-American              0  ...   \n",
+       "4   1991-05-14   24     Less than 25  African-American              0  ...   \n",
+       "5   1993-01-21   23     Less than 25  African-American              0  ...   \n",
+       "6   1973-01-22   43          25 - 45             Other              0  ...   \n",
+       "\n",
+       "    v_decile_score  v_score_text  v_screening_date  in_custody  out_custody  \\\n",
+       "id                                                                            \n",
+       "1                1           Low        2013-08-14  2014-07-07   2014-07-14   \n",
+       "3                1           Low        2013-01-27  2013-01-26   2013-02-05   \n",
+       "4                3           Low        2013-04-14  2013-06-16   2013-06-16   \n",
+       "5                6        Medium        2013-01-13         NaN          NaN   \n",
+       "6                1           Low        2013-03-26         NaN          NaN   \n",
+       "\n",
+       "   priors_count.1 start   end event two_year_recid  \n",
+       "id                                                  \n",
+       "1               0     0   327     0              0  \n",
+       "3               0     9   159     1              1  \n",
+       "4               4     0    63     0              1  \n",
+       "5               1     0  1174     0              0  \n",
+       "6               2     0  1102     0              0  \n",
+       "\n",
+       "[5 rows x 52 columns]"
+      ]
+     },
+     "execution_count": 22,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_pp.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "2bf55d53-46d3-41d8-aff0-cd66ce4fe089",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(5278, 15)"
+      ]
+     },
+     "execution_count": 23,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "id": "ed4934f5-9b73-4b9c-bfd5-da3c70e91e7b",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "African-American    3175\n",
+       "Caucasian           2103\n",
+       "Name: race, dtype: int64"
+      ]
+     },
+     "execution_count": 24,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df['race'].value_counts()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "id": "31b893e9-fa82-4ed7-b7f2-7ded8097ad14",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "Male      4247\n",
+       "Female    1031\n",
+       "Name: sex, dtype: int64"
+      ]
+     },
+     "execution_count": 25,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df['sex'].value_counts()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "id": "dd07959d-3db7-49ef-be13-dfeffe6d068f",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "25 - 45            3026\n",
+       "Less than 25       1156\n",
+       "Greater than 45    1096\n",
+       "Name: age_cat, dtype: int64"
+      ]
+     },
+     "execution_count": 26,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df['age_cat'].value_counts()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "id": "7a7dff26-a624-4f1f-beed-fb1dd63978c9",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th>decile_score</th>\n",
+       "      <th>1</th>\n",
+       "      <th>2</th>\n",
+       "      <th>3</th>\n",
+       "      <th>4</th>\n",
+       "      <th>5</th>\n",
+       "      <th>6</th>\n",
+       "      <th>7</th>\n",
+       "      <th>8</th>\n",
+       "      <th>9</th>\n",
+       "      <th>10</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>race</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>African-American</th>\n",
+       "      <td>11.496063</td>\n",
+       "      <td>10.897638</td>\n",
+       "      <td>9.385827</td>\n",
+       "      <td>10.614173</td>\n",
+       "      <td>10.173228</td>\n",
+       "      <td>10.015748</td>\n",
+       "      <td>10.803150</td>\n",
+       "      <td>9.480315</td>\n",
+       "      <td>9.984252</td>\n",
+       "      <td>7.149606</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>Caucasian</th>\n",
+       "      <td>28.768426</td>\n",
+       "      <td>15.263909</td>\n",
+       "      <td>11.317166</td>\n",
+       "      <td>11.554922</td>\n",
+       "      <td>9.510223</td>\n",
+       "      <td>7.608179</td>\n",
+       "      <td>5.373276</td>\n",
+       "      <td>4.564907</td>\n",
+       "      <td>3.661436</td>\n",
+       "      <td>2.377556</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "decile_score             1          2          3          4          5   \\\n",
+       "race                                                                      \n",
+       "African-American  11.496063  10.897638   9.385827  10.614173  10.173228   \n",
+       "Caucasian         28.768426  15.263909  11.317166  11.554922   9.510223   \n",
+       "\n",
+       "decile_score             6          7         8         9         10  \n",
+       "race                                                                  \n",
+       "African-American  10.015748  10.803150  9.480315  9.984252  7.149606  \n",
+       "Caucasian          7.608179   5.373276  4.564907  3.661436  2.377556  "
+      ]
+     },
+     "execution_count": 27,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "race_score_table = df.groupby(['race','decile_score']).size().reset_index().pivot(\n",
+    "                index='decile_score',columns='race',values=0)\n",
+    "\n",
+    "# percentage of defendants in each score category\n",
+    "(100*race_score_table/race_score_table.sum()).transpose()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "id": "8d62a139-71fc-42db-a8b0-195f7353733d",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "NameError",
+     "evalue": "name 'figsize' is not defined",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mNameError\u001b[0m                                 Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-28-df1e3230b4f7>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mrace_score_table\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mplot\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mfigsize\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;36m12\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;36m7\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m",
+      "\u001b[0;31mNameError\u001b[0m: name 'figsize' is not defined"
+     ]
+    }
+   ],
+   "source": [
+    "race_score_table.plot(figsize(12,7))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "id": "2263f350-fa34-4d20-b26a-6324f5957b96",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.axes._subplots.AxesSubplot at 0x7f697a2207f0>"
+      ]
+     },
+     "execution_count": 30,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "iVBORw0KGgoAAAANSUhEUgAAAsUAAAGtCAYAAAD+hAmyAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAADh0RVh0U29mdHdhcmUAbWF0cGxvdGxpYiB2ZXJzaW9uMy4yLjEsIGh0dHA6Ly9tYXRwbG90bGliLm9yZy+j8jraAAAgAElEQVR4nO3df5SWdZ3/8eebH4I/URQ5ChjUqijy01FJWw+JmemmYm26uUql2a+1H9tq5raJnfqm5+vW12rzxGKruS5iGuL2wzS1FdssfoigYEo5LJACSg2K4gq+v3/MBYwwyMDcM/fg5/k4Z859XZ/rc3/u930NAy8+87mvKzITSZIkqWTd6l2AJEmSVG+GYkmSJBXPUCxJkqTiGYolSZJUPEOxJEmSimcoliRJUvF61LsAgAMOOCAHDx5c7zIkSZL0JjdnzpznMrPflu1dIhQPHjyY2bNn17sMSZIkvclFxJLW2l0+IUmSpOIZiiVJklQ8Q7EkSZKK1yXWFEuSJHWmV199lWXLlrFu3bp6l6IO0rt3bwYOHEjPnj3b1N9QLEmSirNs2TL23ntvBg8eTETUuxzVWGby/PPPs2zZMoYMGdKm57h8QpIkFWfdunXsv//+BuI3qYhg//3336HfBBiKJUlSkQzEb247+v01FEuSJKl4hmJJkqQ3iczktddeq3cZuyRDsSRJ0i6ssbGRww8/nAsuuICjjjqKCy+8kIaGBoYNG8aVV165qd+sWbM4/vjjGTlyJMceeywvvPACGzZs4NJLL+WYY45hxIgRfO9736vjO6kvrz4hSZK0i3vqqae46aabGDt2LKtXr6Zv375s2LCB8ePHM3/+fIYOHco555zDtGnTOOaYY1izZg277747N9xwA3369GHWrFm88sornHDCCZxyyiltvmLDm4mhWJIkaRf3lre8hbFjxwJw2223MXnyZNavX88zzzzDwoULiQgOOuggjjnmGAD22WcfAO655x7mz5/P7bffDkBTUxNPPfWUoViSJEm7nj333BOAp59+mmuvvZZZs2ax33778aEPfegNL0uWmXz729/m3e9+d2eV2mW5pliSJOlNYs2aNey555706dOHFStW8LOf/QyAww8/nGeeeYZZs2YB8MILL7B+/Xre/e53c/311/Pqq68C8OSTT7J27dq61V9PzhRLkiS9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8Y9vahs5ciSjR49m/PjxjBkzhuHDhzNjxgwAGhsbOeqoozb1vfbaa5k0aRIAixcv5uSTT2bkyJGMGTOG3//+97z44outjrN27VpOP/10Ro4cyVFHHcW0adMAGDduHBtvpPaJT3yChoYGhg0bxpVXXrnpNQcPHsyVV165acwnnniiQ89RZ3OmWJIkqZM99thjHH300Vu19+7dm+nTp7PPPvvw3HPPMXbsWM4444w3HOu8887j8ssvZ8KECaxbt47XXnuN3XbbrdVx7r77bg4++GB+8pOfANDUtPWM9te+9jX69u3Lhg0bGD9+PPPnz2fEiBEAHHDAAcydO5fvfve7XHvttW+qGWZniiVJkrqIzOSKK65gxIgRnHzyySxfvpwVK1Zss/8LL7zA8uXLmTBhAtAcqvfYY49tjjN8+HDuvfdevvCFLzBz5kz69Nl62chtt93GmDFjGD16NI8//vjr1hqfffbZABx99NE0NjbW9s3XmaFYkiSpkw0bNow5c+Zs1X7LLbewatUq5syZw7x58+jfvz/r1q2jR48evPbaa5v6rVu37g3H39Y4hx12GHPnzmX48OF86Utf4itf+crrnvf0009z7bXXct999zF//nxOP/30171Wr169AOjevTvr169vzynocgzFkiRJneykk07ilVdeYfLkyZva5s+fz5IlSzjwwAPp2bMnDzzwAEuWLAGgf//+rFy5kueff55XXnmFH//4xwDsvffeDBw4kDvvvBOAV155hZdeeommpqZWx/njH//IHnvswd/+7d9y6aWXMnfu3NfVtWbNGvbcc0/69OnDihUr+NnPftYZp6NLcE2xJElSJ4sIpk+fzmc/+1muueYaevfuzeDBg5k0aRKf/vSnGT58OA0NDQwdOhSAnj178uUvf5ljjz2WAQMGbGoHuPnmm/nYxz7Gl7/8ZXr27MkPf/hDzjvvPN773vduNc6CBQu49NJL6datGz179uT6669/XV0bP+w3dOhQBg0axAknnNB5J6XOIjPrXQMNDQ258ROPddXey7Fs5/IrkiSpa1i0aBFHHHFEvctQB2vt+xwRczKzYcu+Lp+QJElS8QzFkiRJKp6hWJIkScUzFEuSpCJ1hc9VqePs6PfXUCxJkorTu3dvnn/+eYPxm1Rm8vzzz9O7d+82P8dLskmSpOIMHDiQZcuWsWrVqnqXog7Su3dv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\n",
+      "text/plain": [
+       "<Figure size 864x504 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "race_score_table.plot(kind='bar',figsize=(12,7))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "id": "9b8fd371-5402-437e-b5cd-46b55fd1fcd0",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.axes._subplots.AxesSubplot at 0x7f6979ad44e0>"
+      ]
+     },
+     "execution_count": 31,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "iVBORw0KGgoAAAANSUhEUgAAAsUAAAGtCAYAAAD+hAmyAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAADh0RVh0U29mdHdhcmUAbWF0cGxvdGxpYiB2ZXJzaW9uMy4yLjEsIGh0dHA6Ly9tYXRwbG90bGliLm9yZy+j8jraAAAgAElEQVR4nO3dfbxVdZ33/9dHQPEWAZFRwA4ZijeI4BEpmzIxI50RMSuzFB2Nbhw161KZptL8NVd6/Zzp6mbiGkZKLEMIR/GX6WRql9qkAoqggEp6CAjhhIa3OILf3x97QZvDQfY+Z59zNnxfz8djP85a37XWZ3/2OZvN+3zP2mtHSglJkiQpZ7t0dQOSJElSVzMUS5IkKXuGYkmSJGXPUCxJkqTsGYolSZKUPUOxJEmSste9qxsA2G+//VJDQ0NXtyFJkqSd3Lx58/6UUurXcrwuQnFDQwNz587t6jYkSZK0k4uIZa2Ne/qEJEmSsmcoliRJUvYMxZIkScpeXZxTLEmS1JneeustVqxYwfr167u6FXWQnj17MnDgQHr06FHR/oZiSZKUnRUrVrD33nvT0NBARHR1O6qxlBJr165lxYoVDB48uKJjPH1CkiRlZ/369fTt29dAvJOKCPr27VvVXwIMxZIkKUsG4p1btT9fQ7EkSZKyZyiWJEnaSaSUePvtt7u6jR2SoViSJGkH1tTUxKGHHsq5557LkUceyQUXXEBjYyNHHHEEV1111eb95syZw/ve9z6GDx/OqFGjeOWVV9i4cSOXX345xx57LEcddRT/9m//1oWPpGt59QlJkqQd3LPPPsu0adMYPXo0L774In369GHjxo2MGTOGBQsWMHToUD75yU8yY8YMjj32WF5++WV23313pk6dSq9evZgzZw5vvvkmxx9/PCeffHLFV2zYmRiKJUmSdnDvete7GD16NAAzZ85kypQpbNiwgVWrVrFo0SIiggMOOIBjjz0WgH322QeAX/3qVyxYsIBZs2YBsG7dOp599llDsSRJknY8e+65JwDPP/88119/PXPmzKF3796cd95573hZspQS3//+9/nIRz7SWa3WLc8pliRJ2km8/PLL7LnnnvTq1YvVq1dz1113AXDooYeyatUq5syZA8Arr7zChg0b+MhHPsLkyZN56623AHjmmWd47bXXuqz/ruRMsSRJ0k5i+PDhjBgxgqFDhzJo0CCOP/54AHbddVdmzJjBxRdfzBtvvMHuu+/Or3/9ay688EKampoYOXIkKSX69evH7bff3sWPomtESqmre6CxsTHNnTu3q9uQJEmZWLx4MYcddlhXt6EO1trPOSLmpZQaW+5btzPFDZPu3GK96dpTu6gTSZIk7ew8p1iSJEnZMxRLkiQpe4ZiSZIkZc9QLEmSpOwZiiVJkpQ9Q7EkSVIXuf3224kIlixZAkBzczPHHXccI0aM4MEHH9xq/wsvvJBFixZ1eF9HH300Z511VofeR2c9lkrV7SXZJEmSOkvLS8G2V6WXkp0+fTrvf//7mT59Ot/85je59957GTZsGDfccMNW+27cuLHV8VpbvHgxGzdu5MEHH+S1117b/BHStdRZj6UazhRLkiR1gVdffZWHHnqIqVOncssttzB//nyuuOIKZs+ezdFHH80bb7zBXnvtxVe+8hWGDx/O7373O0444QQ2feDZ3XffzciRIxk+fDhjxowB4NFHH+W9730vI0aM4H3vex9PP/00ADfeeCNnnHEGY8eOZciQIVxxxRXb7Gv69Omcc845nHzyycyePXvz+AknnMBll11GY2Mjhx12GHPmzOGMM85gyJAhfO1rX9u8309/+lNGjRrF0Ucfzec+9zk2btwI0CWPpRrOFEuSJHWB2bNnM3bsWA455BD69u3Lxo0bueaaa5g7dy4/+MEPAHjttdc47rjj+Od//uctjm1ubuazn/0sDzzwAIMHD+bFF18EYOjQoTz44IN0796dX//613z1q1/l1ltvBWD+/Pk8/vjj7Lbbbhx66KFcfPHFDBo0aKu+ZsyYwT333MOSJUv4/ve/z9lnn71526677srcuXP57ne/y7hx45g3bx59+vTh4IMP5rLLLmPNmjXMmDGD3/72t/To0YMvfvGL3HzzzZx77rld8liqseOE4qt7tTK2rvP7kCRJqoHp06dz6aWXAnDWWWcxffp0jjzyyC326datGx/72Me2Ovbhhx/mAx/4AIMHDwagT58+AKxbt44JEybw7LPPEhG89dZbm48ZM2YMvXqV8tThhx/OsmXLtgqSc+fOZb/99uOggw5iwIAB/N3f/R0vvvji5vqnnXYaAMOGDeOII47ggAMOAODd7343y5cv56GHHmLevHkce+yxALzxxhvsv//+XfJYqrXjhGJJkqSdxIsvvsh9993HwoULiQg2btxIRHDEEUdssV/Pnj3p1q1bxXW//vWv86EPfYjbbruNpqYmTjjhhM3bdtttt83L3bp1Y8OGDdx2221885vfBOCGG25g+vTpLFmyhIaGBgBefvllbr31Vj772c9uUWOXXXbZot4uu+zChg0bSCkxYcIEvv3tb2/VW0c/lvbynGJJkqRONmvWLM455xyWLVtGU1MTy5cvZ/DgwSxfvryi40ePHs0DDzzA888/D7D5lIN169YxYMAAoHTu7faMHz+e+fPnM3/+fEaOHMnMmTNZuHAhTU1NNDU1MXv2bKZPn17x4xozZgyzZs1izZo1m/tatmxZpzyW9jIUS5IkdbLp06czfvz4LcY+9rGPtTrD2pp+/foxZcoUzjjjDIYPH84nP/lJAK644gr+4R/+gREjRlQ9e/rggw8yYMAADjzwwM1jH/jAB1i0aBGrVq2qqMbhhx/Ot771LU4++WSOOuooPvzhD2/32I54LG0RKaUOv5PtaWxsTJvefbhJy0ujNPU8m614TrEkSWqDxYsXc9hhh3V1G+pgrf2cI2JeSqmx5b7OFEuSJCl7FYXiiLgsIp6KiCcjYnpE9IyIwRHxSEQsjYgZEbFrse9uxfrSYntDRz4ASZIkqb22G4ojYgBwCdCYUjoS6AacBVwHfCel9B7gJeCC4pALgJeK8e8U+0mSJEl1q9LTJ7oDu0dEd2APYBVwIjCr2D4NOL1YHlesU2wfExFRm3YlSZKk2ttuKE4prQSuB/5AKQyvA+YBf04pbXor4ApgQLE8AFheHLuh2L9vy7oRMTEi5kbE3Obm5vY+DkmSJKnNKjl9ojel2d/BwIHAnsDY9t5xSmlKSqkxpdTYr1+/9paTJEmS2qyS0ydOAp5PKTWnlN4C/gM4Hti3OJ0CYCCwslheCQwCKLb3AtbWtGtJkqQd3AsvvMBZZ53FwQcfzDHHHMMpp5zCM8880yW9XHjhhSxatKhL7rteVPIxz38ARkfEHsAbwBhgLnA/cCZwCzABmF3sf0ex/rti+32pHi6GLEmStC1X96pxvXf+LIWUEuPHj2fChAnccsstADzxxBOsXr2aQw45pLa9VOCGG27o9PusN5WcU/wIpTfMPQYsLI6ZAlwJfDkillI6Z3hqcchUoG8x/mVgUgf0LUmStMO6//776dGjB5///Oc3jw0fPpwRI0YwZswYRo4cybBhw5g9uzTn2NTUxJFHHrl53+uvv56rr74agKVLl3LSSScxfPhwRo4cye9//3teffXVVuu89tprnHrqqQwfPpwjjzySGTNmAHDCCSew6YPUvvCFL9DY2MgRRxzBVVddtfk+GxoauOqqqzbXXLJkSYd+jzpbJTPFpJSuAq5qMfwcMKqVfdcDH29/a5IkSTunJ598kmOOOWar8Z49e3Lbbbexzz778Kc//YnRo0dz2mmnvWOtT3/600yaNInx48ezfv163n77bXbddddW69x9990ceOCB3Hln6ZOD163bekb7n/7pn+jTpw8bN25kzJgxLFiwgKOOOgqA/fbbj8cee4wf/vCHXH/99TvVDLOfaCdJklQnUkp89atf5aijjuKkk05i5cqVrF69epv7v/LKK6xcuZLx48cDpVC9xx57bLPOsGHDuOeee7jyyit58MEH6dVr69NGZs6cyciRIxkxYgRPPfXUFucan3HGGQAcc8wxNDU11fbBdzFDsSRJUic74ogjmDdv3lbjN998M83NzcybN4/58+fTv39/1q9fT/fu3Xn77bc377d+/fp3rL+tOocccgiPPfYYw4YN42tf+xrXXHPNFsc9//zzXH/99dx7770sWLCAU089dYv72m233QDo1q0bGzZsYGdiKJYkSepkJ554Im+++SZTpkzZPLZgwQKWLVvG/vvvT48ePbj//vtZtmwZAP3792fNmjWsXbuWN998k1/84hcA7L333gwcOJDbb78dgDfffJPXX3+ddevWtVrnj3/8I3vssQef+cxnuPzyy3nssce26Ovll19mzz33pFevXqxevZq77rqrM74ddaGic4olSZJUOxHBbbfdxpe+9CWuu+46evbsSUNDA1dffTWXXHIJw4YNo7GxkaFDhwLQo0cPvvGNbzBq1CgGDBiweRzgJz/5CZ/73Of4xje+QY8ePfj5z3/Opz/9af72b/92qzoLFy7k8ssvZ5dddqFHjx5Mnjx5i742vdlv6NChDBo0iOOPP77zvildLOrhammNjY1p0zseN2mYdOcW6009z976wO1c7kSSJKk1ixcv5rDDDuvqNtTBWvs5R8S8lFJjy309fUKSJEnZMxRLkiQpe4ZiSZIkZc9QLEmSslQP76tSx6n252soliRJ2enZsydr1641GO+kUkqsXbuWnj17VnyM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\n",
+      "text/plain": [
+       "<Figure size 864x504 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "priors = df.groupby(['race','priors_count']).size().reset_index().pivot(index='priors_count',columns='race',values=0)\n",
+    "priors.plot(kind='bar',figsize=[12,7])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "id": "8160ff5b-3fa9-475a-b7bf-d5bed267fd28",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.axes._subplots.AxesSubplot at 0x7f69799c8208>"
+      ]
+     },
+     "execution_count": 32,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "iVBORw0KGgoAAAANSUhEUgAAA20AAAGtCAYAAACFhZxXAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAADh0RVh0U29mdHdhcmUAbWF0cGxvdGxpYiB2ZXJzaW9uMy4yLjEsIGh0dHA6Ly9tYXRwbG90bGliLm9yZy+j8jraAAAgAElEQVR4nO3de7SdVX0v/O8PEoigpnKRgYAmdXC/5EK4VKwjGkWUUxE8p1Kt0Cqi1qr1eLTosYKeMorjpXZYfXWUgke0NoAXiMc7oqeAp9QkGMNVwRIKFEMEGxCBA2G+f+wV3iC5Z++suXc+nzH22M+az3zm+q1n57K/az7PXNVaCwAAAH3abtgFAAAAsG5CGwAAQMeENgAAgI4JbQAAAB0T2gAAADomtAEAAHRs0rALSJLddtutTZs2bdhlAAAADMXixYt/0VrbfW37ught06ZNy6JFi4ZdBgAAwFBU1e3r2ufySAAAgI4JbQAAAB0T2gAAADrWxT1ta/Poo4/mzjvvzMMPPzzsUhgjU6ZMyd57753JkycPuxQAAOhWt6HtzjvvzDOe8YxMmzYtVTXschhlrbXce++9ufPOOzN9+vRhlwMAAN3q9vLIhx9+OLvuuqvANkFVVXbddVczqQAAsAHdhrYkAtsE5+cLAAAb1nVoAwAA2NYJbVtZay2PP/74sMsAAADGCaFtK1i2bFn233//nHLKKTnkkEPypje9KXPmzMnBBx+cM88884l+CxcuzAte8ILMmDEjRx55ZB544IGsWrUq733ve3PEEUfksMMOy9/93d8N8ZUAAABbW7erR040t9xySy688MIcffTRue+++7LLLrtk1apVmTdvXpYuXZoDDjggr33ta3PxxRfniCOOyP3335+nPe1pueCCCzJ16tQsXLgwjzzySI455pgce+yxVlwEAIBtxAZn2qpqn6r6flXdWFU3VNW7Bu1nVdVdVbVk8PXKNY55f1XdWlU/qaqXj+ULGC+e97zn5eijj06SXHLJJZk9e3ZmzZqVG264ITfeeGN+8pOfZM8998wRRxyRJHnmM5+ZSZMm5Tvf+U4+97nPZebMmTnqqKNy77335pZbbhnmSwEAALaijZlpeyzJe1pr11bVM5IsrqrLB/v+prV27pqdq+qgJCcnOTjJc5J8t6r2a62tGs3Cx5udd945SXLbbbfl3HPPzcKFC/OsZz0rf/RHf7TeZe9ba/nEJz6Rl79c9gUAgG3RBmfaWmt3t9auHWw/kOSmJHut55ATklzUWnuktXZbkluTHDkaxU4E999/f3beeedMnTo1y5cvzze/+c0kyf7775+77747CxcuTJI88MADeeyxx/Lyl788n/70p/Poo48mSX7605/mwQcfHFr9AADA1rVJ97RV1bQks5L8S5JjkvxpVZ2SZFFGZuN+mZFAd80ah92ZtYS8qjo9yelJ8tznPnczSh+fZsyYkVmzZuWAAw7IPvvsk2OOOSZJssMOO+Tiiy/OO97xjjz00EN52tOelu9+97s57bTTsmzZssyePTuttey+++657LLLhvwqAACAraVaaxvXserpSf4pydmtta9U1R5JfpGkJfkfSfZsrb2xqj6Z5JrW2j8MjrsgyTdba19a19hz5sxpixYtelLbTTfdlAMPPHBzXhPjiJ8zAAAkVbW4tTZnbfs2aqatqiYn+XKSL7TWvpIkrbXla+z/+yRfGzy8K8k+axy+96ANAAAmnGlnfH3Ux1x2zvGjPibj18asHllJLkhyU2vtY2u077lGtxOTXD/Y/mqSk6tqx6qanmTfJD8cvZIBAAC2HRsz03ZMkjckua6qlgzaPpDkD6pqZkYuj1yW5C1J0lq7oaouSXJjRlaefPu2vnIkAADA5tpgaGutXZ2k1rLrG+s55uwkZ29BXQAAAGQjLo8EAABgeIQ2AACAjgltG3DZZZelqnLzzTcnSVasWJGjjjoqs2bNylVXXfWU/qeddlpuvPHGMa9r5syZOfnkk8f0ObbWawEAANZtkz5ce5hGeynVjV1Gdf78+XnhC1+Y+fPn58Mf/nCuuOKKHHrooTn//POf0nfVqlVrbR9tN910U1atWpWrrroqDz74YHbeeedRf46t9VoAAID1M9O2Hr/61a9y9dVX54ILLshFF12UJUuW5H3ve18WLFiQmTNn5qGHHsrTn/70vOc978mMGTPyz//8z5k7d25Wf1D4t771rcyePTszZszIvHnzkiQ//OEP8zu/8zuZNWtWXvCCF+QnP/lJkuSzn/1sTjrppBx33HHZd9998773vW+ddc2fPz9veMMbcuyxx2bBggVPtM+dOzfvfve7M2fOnBx44IFZuHBhTjrppOy777754Ac/+ES/f/iHf8iRRx6ZmTNn5i1veUtWrRpZ3HMYrwUAAFi/cTPTNgwLFizIcccdl/322y+77rprVq1alY985CNZtGhRPvnJTyZJHnzwwRx11FH567/+6ycdu2LFirz5zW/OlVdemenTp+e+++5LkhxwwAG56qqrMmnSpHz3u9/NBz7wgXz5y19OkixZsiQ/+tGPsuOOO2b//ffPO97xjuyzzz75TRdffHEuv/zy3HzzzfnEJz6R173udU/s22GHHbJo0aJ8/OMfzwknnJDFixdnl112yfOf//y8+93vzj333JOLL744P/jBDzJ58uT8yZ/8Sb7whS/klFNOGcprAQAA1k9oW4/58+fnXe96V5Lk5JNPzvz583PIIYc8qc/222+f17zmNU859pprrsmLXvSiTJ8+PUmyyy67JElWrlyZU089NbfcckuqKo8++ugTx8ybNy9Tp05Nkhx00EG5/fbbnxJ0Fi1alN122y3Pfe5zs9dee+WNb3xj7rvvvifGf9WrXpUkOfTQQ3PwwQdnzz1HPgP9t3/7t3PHHXfk6quvzuLFi3PEEUckSR566KE8+9nPHsprAQAANkxoW4f77rsv3/ve93LdddelqrJq1apUVQ4++OAn9ZsyZUq23377jR73L/7iL/LiF784l156aZYtW5a5c+c+sW/HHXd8Ynv77bfPY489lksvvTQf/vCHkyTnn39+5s+fn5tvvjnTpk1Lktx///358pe/nDe/+c1PGmO77bZ70njbbbddHnvssbTWcuqpp+av/uqvnlLbWL8WAABg07mnbR2+9KUv5Q1veENuv/32LFu2LHfccUemT5+eO+64Y6OOP/roo3PllVfmtttuS5InLilcuXJl9tprryQj935tyIknnpglS5ZkyZIlmT17di655JJcd911WbZsWZYtW5YFCxZk/vz5G/265s2bly996Uu55557nqjr9ttv3yqvBQAA2HRC2zrMnz8/J5544pPaXvOa16x1hmptdt9995x33nk56aSTMmPGjLz2ta9Nkrzvfe/L+9///syaNWuTZ5+uuuqq7LXXXnnOc57zRNuLXvSi3Hjjjbn77rs3aoyDDjoof/mXf5ljjz02hx12WF72spdt8NixeC0AAMDGqdbasGvInDlz2upVCle76aabcuCBBw6pIrYWP2cAYLwb7Y+mSjb+46mYOKpqcWttztr2mWkDAADomNAGAADQMaENAACgY0IbAABAx4Q2AACAjgltAAAAHRPaNuDnP/95Tj755Dz/+c/P4Ycfnle+8pX56U9/OpRaTjvttNx4441DeW4AAGA4Jg27gI121tRRHm/lBru01nLiiSfm1FNPzUUXXZQk+fGPf5zly5dnv/32G916NsL555+/1Z8TAAAYLjNt6/H9738/kydPzlvf+tYn2mbMmJFZs2Zl3rx5mT17dg499NAsWLAgSbJs2bIccsghT/Q999xzc9ZZZyVJbr311rz0pS/NjBkzMnv27PzsZz/Lr371q7WO8+CDD+b444/PjBkzcsghh+Tiiy9OksydOzerP4T8bW97W+bMmZODDz44Z5555hPPOW3atJx55plPjHnzzTeP6TkCAADG1viZaRuC66+/PocffvhT2qdMmZJLL700z3zmM/OLX/wiRx99dF71qletd6zXv/71OeOMM3LiiSfm4YcfzuOPP54ddthhreN861vfynOe85x8/etfT5KsXPnUWcGzzz47u+yyS1atWpV58+Zl6dKlOeyww5Iku+22W6699tp86lOfyrnnnmuGDgAAxjEzbZuhtZYPfOADOeyww/LSl740d911V5YvX77O/g888EDuuuuunHjiiUlGQt9OO+20znEOPfTQXH755fnzP//zXHXVVZk69amXhl5yySWZPXt2Zs2alRtuuOFJ97qddNJJSZLDDz88y5YtG90XDwAAbFVC23ocfPDBWbx48VPav/CFL2TFihVZvHhxlixZkj322CMPP/xwJk2alMcff/yJfg8//PB6x1/XOPvtt1+uvfbaHHroofngBz+Yj3zkI0867rbbbsu5556bK664IkuXLs3xxx//pOfacccdkyTbb799HnvssS05BQAAwJAJbevxkpe8JI888kjOO++8J9qWLl2a22+/Pc9+9rMzefLkfP/738/tt9+eJNljjz1yzz335N57780jjzySr33ta0mSZzzjGdl7771z2WWXJUkeeeSR/PrXv87KlSvXOs6///u/Z6eddsof/uEf5r3vfW+uvfbaJ9V1//33Z+edd87UqVOzfPnyfPOb39wapwMAABgC97StR1Xl0ksvzZ/92Z/lox/9aKZMmZJp06blrLPOyjvf+c4ceuihmTNnTg444IAkyeTJk/OhD30oRx55ZPbaa68n2pPk85//fN7ylrfkQx/6UCZPnpwvfvGLef3r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\n",
+      "text/plain": [
+       "<Figure size 1080x504 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "df_2priors = df.loc[df['priors_count']>=2]\n",
+    "score_2priors = df_2priors.groupby(['race','decile_score']).size().reset_index().pivot(\n",
+    "  index='decile_score',columns='race',values=0)\n",
+    "score_2priors.plot(kind='bar',figsize=[15,7])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "id": "be51c46f-be58-4fcc-98c5-5b87fea24467",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.axes._subplots.AxesSubplot at 0x7f69798fbc88>"
+      ]
+     },
+     "execution_count": 33,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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mjRpQrdu3cjNzS13W926dWP79u0UFhYyc+ZMBgwYQI0aNVi0aBHPPfcc7dq1o2PHjuzfv5/t27fj7vzyl7+kTZs29OzZkz179kTqlp9//vl06tSp0ucWXbN8yZIlbNiwgfbt29OuXTuWLFnCzp07Wbt2LV27diUzMxOg3OJbq1atYtCgQUCopno8Zs6cGUlqAwcOPCZxRis79QLw3nvv0bRp00ihr/r161OjRg2++eYbhg0bRlZWFjfffDNbt0bKC9GhQweaNWtGWloa7dq1Iz8//5jt7t27l+3bt3P11Vdz0UUXUbNmTd55553I+r59+2JmZGVl0aRJE7KyskhLS+Oyyy4jPz+ftWvXsnXrVq666iratWvHs88+y4cffpjU53LOOefwz3+q0oaEpPRB0WSrU6dOpbW727dvz/r167ngggu45ppr2LdvH08++SRXXHHFCY03ePBg/vrXvzJr1iyeeeYZIDQ98ec//5lrr722VN9p06ZRWFjIhg0bqFmzJi1atIjE+q1vfSvmWNE1y92d22+/nd/97nel+vz973+PK+7juat8cXExf/vb33jllVf47W9/i7uzf//+CisqxvNcSkycOJEmTZqwadMmjh49Su3atSProuu7p6enc+TIEdatWxepuz5u3Dg+/PBDPvvss8gb2L///W9mzpzJb3/721LbSEtLK7W9tLQ0jhw5Qnp6Otdcc02Fb1BV+VxKHDp0iDp16sQ9jgSb9tCjnHXWWRQXF0cSZb169UolnjPOOIPmzZszZ84crrzySrp06cKjjz5K165dgdAe/OzZsykuLqawsJDly5fToUOHCscbMmQIf/rTnwBo1aoVEKpB/vjjj/PNN98A8P777/Pll19SVFTEOeecQ82aNVm2bFmpPcHj1aNHD1588cVI3fF//etffPjhh3Tq1Inly5eza9euSHtZV111Vama6tEuueSSY/ovWbKENm3asHv3bvLz8/nwww8ZMGAAc+fOjTveiy++mI8//jjyaeeLL77gyJEjFBUV0bRpU9LS0pg+fXrMg70dO3YkLy+PvLw8+vXrx8yZM3nttdfIz88nPz+fDRs2lJpHj6VTp06sWrWKHTt2AKFprffffz8pz6XE+++/T+vWreOOWYItpffQq/oO2eXp1asXK1eupGfPnrRp04b09HTatm3LkCFDIvPoS5YsoU6dOnTp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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "df.groupby(['race','decile_score'])['two_year_recid'].mean().reset_index().pivot(\n",
+    "  index='decile_score',columns='race').plot(kind='bar')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 34,
+   "id": "c40bde92-22df-4067-b9e7-5736dd76aded",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "dfQ = pd.read_csv('https://raw.githubusercontent.com/ml4sts/outreach-compas/main/data/compas_cq.csv')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 35,
+   "id": "6eaeff21-39de-4b69-91bb-3e4c13c831e7",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>id</th>\n",
+       "      <th>age</th>\n",
+       "      <th>c_charge_degree</th>\n",
+       "      <th>race</th>\n",
+       "      <th>age_cat</th>\n",
+       "      <th>score_text</th>\n",
+       "      <th>sex</th>\n",
+       "      <th>priors_count</th>\n",
+       "      <th>days_b_screening_arrest</th>\n",
+       "      <th>decile_score</th>\n",
+       "      <th>is_recid</th>\n",
+       "      <th>two_year_recid</th>\n",
+       "      <th>c_jail_in</th>\n",
+       "      <th>c_jail_out</th>\n",
+       "      <th>length_of_stay</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>3</td>\n",
+       "      <td>34</td>\n",
+       "      <td>F</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>25 to 45</td>\n",
+       "      <td>0</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>0</td>\n",
+       "      <td>-1.0</td>\n",
+       "      <td>3</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>2013-01-26 03:45:27</td>\n",
+       "      <td>2013-02-05 05:36:53</td>\n",
+       "      <td>&lt;3months</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>4</td>\n",
+       "      <td>24</td>\n",
+       "      <td>F</td>\n",
+       "      <td>African-American</td>\n",
+       "      <td>Less than 25</td>\n",
+       "      <td>0</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>More than 3</td>\n",
+       "      <td>-1.0</td>\n",
+       "      <td>4</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>2013-04-13 04:58:34</td>\n",
+       "      <td>2013-04-14 07:02:04</td>\n",
+       "      <td>&lt;week</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>8</td>\n",
+       "      <td>41</td>\n",
+       "      <td>F</td>\n",
+       "      <td>Caucasian</td>\n",
+       "      <td>25 to 45</td>\n",
+       "      <td>1</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>More than 3</td>\n",
+       "      <td>-1.0</td>\n",
+       "      <td>6</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>2014-02-18 05:08:24</td>\n",
+       "      <td>2014-02-24 12:18:30</td>\n",
+       "      <td>&lt;week</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>10</td>\n",
+       "      <td>39</td>\n",
+       "      <td>M</td>\n",
+       "      <td>Caucasian</td>\n",
+       "      <td>25 to 45</td>\n",
+       "      <td>0</td>\n",
+       "      <td>Female</td>\n",
+       "      <td>0</td>\n",
+       "      <td>-1.0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>2014-03-15 05:35:34</td>\n",
+       "      <td>2014-03-18 04:28:46</td>\n",
+       "      <td>&lt;week</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>14</td>\n",
+       "      <td>27</td>\n",
+       "      <td>F</td>\n",
+       "      <td>Caucasian</td>\n",
+       "      <td>25 to 45</td>\n",
+       "      <td>0</td>\n",
+       "      <td>Male</td>\n",
+       "      <td>0</td>\n",
+       "      <td>-1.0</td>\n",
+       "      <td>4</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>2013-11-25 06:31:06</td>\n",
+       "      <td>2013-11-26 08:26:57</td>\n",
+       "      <td>&lt;week</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   id  age c_charge_degree              race       age_cat  score_text  \\\n",
+       "0   3   34               F  African-American      25 to 45           0   \n",
+       "1   4   24               F  African-American  Less than 25           0   \n",
+       "2   8   41               F         Caucasian      25 to 45           1   \n",
+       "3  10   39               M         Caucasian      25 to 45           0   \n",
+       "4  14   27               F         Caucasian      25 to 45           0   \n",
+       "\n",
+       "      sex priors_count  days_b_screening_arrest  decile_score  is_recid  \\\n",
+       "0    Male            0                     -1.0             3         1   \n",
+       "1    Male  More than 3                     -1.0             4         1   \n",
+       "2    Male  More than 3                     -1.0             6         1   \n",
+       "3  Female            0                     -1.0             1         0   \n",
+       "4    Male            0                     -1.0             4         0   \n",
+       "\n",
+       "   two_year_recid            c_jail_in           c_jail_out length_of_stay  \n",
+       "0               1  2013-01-26 03:45:27  2013-02-05 05:36:53       <3months  \n",
+       "1               1  2013-04-13 04:58:34  2013-04-14 07:02:04          <week  \n",
+       "2               1  2014-02-18 05:08:24  2014-02-24 12:18:30          <week  \n",
+       "3               0  2014-03-15 05:35:34  2014-03-18 04:28:46          <week  \n",
+       "4               0  2013-11-25 06:31:06  2013-11-26 08:26:57          <week  "
+      ]
+     },
+     "execution_count": 35,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "dfQ.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 36,
+   "id": "235218f1-c8cb-469a-a5d7-67e67524761f",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>two_year_recid</th>\n",
+       "      <th>score_text</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>two_year_recid</th>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>0.314698</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>score_text</th>\n",
+       "      <td>0.314698</td>\n",
+       "      <td>1.000000</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                two_year_recid  score_text\n",
+       "two_year_recid        1.000000    0.314698\n",
+       "score_text            0.314698    1.000000"
+      ]
+     },
+     "execution_count": 36,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# measure with high-low score\n",
+    "dfQ[['two_year_recid','score_text']].corr()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 37,
+   "id": "863f4973-38d7-43c5-b8c6-7b947999ebe0",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>two_year_recid</th>\n",
+       "      <th>decile_score</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>two_year_recid</th>\n",
+       "      <td>1.000000</td>\n",
+       "      <td>0.368193</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>decile_score</th>\n",
+       "      <td>0.368193</td>\n",
+       "      <td>1.000000</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                two_year_recid  decile_score\n",
+       "two_year_recid        1.000000      0.368193\n",
+       "decile_score          0.368193      1.000000"
+      ]
+     },
+     "execution_count": 37,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "dfQ[['two_year_recid','decile_score']].corr()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 38,
+   "id": "7d027f68-6a71-4a2a-8962-c6e71e5190f8",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th>race</th>\n",
+       "      <th>score_text</th>\n",
+       "      <th>African-American</th>\n",
+       "      <th>Caucasian</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.423937</td>\n",
+       "      <td>0.669044</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>1.0</td>\n",
+       "      <td>0.576063</td>\n",
+       "      <td>0.330956</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "race  score_text  African-American  Caucasian\n",
+       "0            0.0          0.423937   0.669044\n",
+       "1            1.0          0.576063   0.330956"
+      ]
+     },
+     "execution_count": 38,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Let's measure the disparate impact according to the EEOC rule\n",
+    "means_score = dfQ.groupby(['score_text','race']).size().unstack().reset_index()\n",
+    "means_score = means_score/means_score.sum()\n",
+    "means_score"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 42,
+   "id": "f26fd934-2a0d-4e2b-9f31-8894be91bbe8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# compute disparate impact\n",
+    "AA_with_high_score = means_score.loc[1,'African-American']\n",
+    "C_with_high_score = means_score.loc[1,'Caucasian']\n",
+    "\n",
+    "disparate_impact_compas = means_score = AA_with_high_score/C_with_high_score"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 43,
+   "id": "18d067bd-5eb9-4335-bac8-767e0453d17f",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "1.740604127070323"
+      ]
+     },
+     "execution_count": 43,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "disparate_impact_compas"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 44,
+   "id": "386aef0c-8040-497b-8b6e-31b37e9f30f6",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "AttributeError",
+     "evalue": "'numpy.float64' object has no attribute 'loc'",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m                            Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-44-93afaeee532f>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[0;31m# compute disparate impact\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 2\u001b[0;31m \u001b[0mAA_with_high_score\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mmeans_score\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mloc\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m1\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m'African-American'\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      3\u001b[0m \u001b[0mC_with_high_score\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mmeans_score\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mloc\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m1\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m'Caucasian'\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      4\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      5\u001b[0m \u001b[0mdisparate_impact_compas\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mmeans_score\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mC_with_high_score\u001b[0m\u001b[0;34m/\u001b[0m\u001b[0mAA_with_high_score\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mAttributeError\u001b[0m: 'numpy.float64' object has no attribute 'loc'"
+     ]
+    }
+   ],
+   "source": [
+    "# compute disparate impact\n",
+    "AA_with_high_score = means_score.loc[1,'African-American']\n",
+    "C_with_high_score = means_score.loc[1,'Caucasian']\n",
+    "\n",
+    "disparate_impact_compas = means_score = C_with_high_score/AA_with_high_score\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 45,
+   "id": "74adf033-7df6-4000-89bc-5da969848844",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "AttributeError",
+     "evalue": "'numpy.float64' object has no attribute 'loc'",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m                            Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-45-93afaeee532f>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[0;31m# compute disparate impact\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 2\u001b[0;31m \u001b[0mAA_with_high_score\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mmeans_score\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mloc\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m1\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m'African-American'\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      3\u001b[0m \u001b[0mC_with_high_score\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mmeans_score\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mloc\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m1\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m'Caucasian'\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      4\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      5\u001b[0m \u001b[0mdisparate_impact_compas\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mmeans_score\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mC_with_high_score\u001b[0m\u001b[0;34m/\u001b[0m\u001b[0mAA_with_high_score\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mAttributeError\u001b[0m: 'numpy.float64' object has no attribute 'loc'"
+     ]
+    }
+   ],
+   "source": [
+    "# compute disparate impact\n",
+    "AA_with_high_score = means_score.loc[1,'African-American']\n",
+    "C_with_high_score = means_score.loc[1,'Caucasian']\n",
+    "\n",
+    "disparate_impact_compas = means_score = C_with_high_score/AA_with_high_score"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 46,
+   "id": "4d4a181d-0a63-4ba1-bd62-ba9d3b4c16b0",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th>race</th>\n",
+       "      <th>score_text</th>\n",
+       "      <th>African-American</th>\n",
+       "      <th>Caucasian</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.423937</td>\n",
+       "      <td>0.669044</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>1.0</td>\n",
+       "      <td>0.576063</td>\n",
+       "      <td>0.330956</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "race  score_text  African-American  Caucasian\n",
+       "0            0.0          0.423937   0.669044\n",
+       "1            1.0          0.576063   0.330956"
+      ]
+     },
+     "execution_count": 46,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Let's measure the disparate impact according to the EEOC rule\n",
+    "means_score = dfQ.groupby(['score_text','race']).size().unstack().reset_index()\n",
+    "means_score = means_score/means_score.sum()\n",
+    "means_score\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 47,
+   "id": "9b0439e0-989b-4594-9cb4-4c3ee1939e67",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# compute disparate impact\n",
+    "AA_with_high_score = means_score.loc[1,'African-American']\n",
+    "C_with_high_score = means_score.loc[1,'Caucasian']\n",
+    "\n",
+    "disparate_impact_compas = means_score = C_with_high_score/AA_with_high_score"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 48,
+   "id": "b1b15323-3220-42d6-9649-e7fa2b82fa05",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.5745131730114521"
+      ]
+     },
+     "execution_count": 48,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "disparate_impact_compas\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b7071579-8e93-4719-950e-3526effc2d3c",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.8"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
